@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.20)
+project(PingPong VERSION 1.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(SDL3 3.2 REQUIRED CONFIG)
+find_package(Freetype REQUIRED)
+add_executable(ping-pong src/main.cpp)
+target_link_libraries(ping-pong PRIVATE SDL3::SDL3 Freetype::Freetype)
+target_compile_options(ping-pong PRIVATE -Wall -Wextra -Wpedantic)
+add_custom_command(TARGET ping-pong POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:ping-pong>/assets)
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(game-tests tests/game_tests.cpp)
+  target_include_directories(game-tests PRIVATE src)
+  add_test(NAME physics COMMAND game-tests)
+  add_test(NAME window-smoke COMMAND ping-pong --smoke-test)
+  set_tests_properties(window-smoke PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=dummy;SDL_RENDER_DRIVER=software")
+  add_test(NAME window-persistence COMMAND ${CMAKE_COMMAND}
+    -DGAME=$<TARGET_FILE:ping-pong> -DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_persistence.cmake)
+  set_tests_properties(window-persistence PROPERTIES ENVIRONMENT "SDL_VIDEO_DRIVER=dummy;SDL_RENDER_DRIVER=software")
+endif()
