@@ -36,6 +36,12 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Test native Cocoa window
         run: '"build/Ping Pong.app/Contents/MacOS/Ping Pong" --smoke-test'
+      - name: Test saved size with native Cocoa windows
+        run: >-
+          cmake "-DGAME=${{ github.workspace }}/build/Ping Pong.app/Contents/MacOS/Ping Pong"
+          "-DTEST_DIR=${{ runner.temp }}"
+          -DINITIAL_WIDTH=900 -DINITIAL_HEIGHT=500 -DRESIZE_WIDTH=800 -DRESIZE_HEIGHT=450
+          -P tests/window_persistence.cmake
       - name: Package and verify standalone dependencies
         run: cmake --build build --target macos-package
       - name: Test relocated packaged application

@@ -91,7 +91,7 @@ static void circle(SDL_Renderer* r, float x, float y, float radius) {
 }
 
 int main(int argc, char** argv) {
-    bool windowTest = argc == 5 && std::string(argv[1]) == "--window-state-test";
+    bool windowTest = (argc == 5 || argc == 7) && std::string(argv[1]) == "--window-state-test";
     bool smoke = windowTest || (argc > 1 && std::string(argv[1]) == "--smoke-test");
     bool screenshotPause = argc > 2 && std::string(argv[1]) == "--screenshot-pause";
     bool screenshot = screenshotPause || (argc > 2 && std::string(argv[1]) == "--screenshot");
@@ -198,8 +198,10 @@ int main(int argc, char** argv) {
                     SDL_PushEvent(&e);
                 }
                 if (frame == 8) {
-                    SDL_SetWindowSize(window, 1100, 700);
-                    if (windowTest) restoreHyprlandSize(window, 1100, 700);
+                    int w = windowTest && argc == 7 ? std::stoi(argv[5]) : 1100;
+                    int h = windowTest && argc == 7 ? std::stoi(argv[6]) : 700;
+                    SDL_SetWindowSize(window, w, h);
+                    if (windowTest) restoreHyprlandSize(window, w, h);
                 }
                 if (frame == 30) { e.type = SDL_EVENT_KEY_DOWN; e.key.scancode = SDL_SCANCODE_Q; SDL_PushEvent(&e); }
             }
