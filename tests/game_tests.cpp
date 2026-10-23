@@ -40,6 +40,19 @@ int main() {
     check(restored.width == 1234 && restored.height == 789, "Window size round trip");
     std::istringstream invalid("-1 999999"); restored.read(invalid);
     check(restored.width == 1234, "Ignore invalid settings");
+    check(restored.difficulty == 2, "Legacy settings default to medium difficulty");
+    for (int level = 1; level <= 3; ++level) {
+        size.difficulty = level;
+        std::ostringstream output; size.write(output);
+        WindowSize loaded;
+        std::istringstream input(output.str()); loaded.read(input);
+        check(loaded.difficulty == level && loaded.width == 1234, "Persist every difficulty with window size");
+    }
+    for (const char* data : {"800 600 3 0", "800 600 3 4", "800 600 3 invalid", "800 600 3", "800 600 2"}) {
+        WindowSize loaded;
+        std::istringstream input(data); loaded.read(input);
+        check(loaded.difficulty == 2 && loaded.width == 800, "Invalid or missing difficulty defaults to medium");
+    }
     WindowSize repaired;
     std::istringstream legacyMinimum("320 240"); repaired.read(legacyMinimum);
     check(repaired.width == 960 && repaired.height == 600, "Repair legacy minimum size");

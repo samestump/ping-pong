@@ -91,7 +91,7 @@ static void circle(SDL_Renderer* r, float x, float y, float radius) {
 }
 
 int main(int argc, char** argv) {
-    bool windowTest = (argc == 5 || argc == 7) && std::string(argv[1]) == "--window-state-test";
+    bool windowTest = (argc == 5 || argc == 7 || argc == 8) && std::string(argv[1]) == "--window-state-test";
     bool smoke = windowTest || (argc > 1 && std::string(argv[1]) == "--smoke-test");
     bool screenshotPause = argc > 2 && std::string(argv[1]) == "--screenshot-pause";
     bool screenshot = screenshotPause || (argc > 2 && std::string(argv[1]) == "--screenshot");
@@ -153,16 +153,19 @@ int main(int argc, char** argv) {
         }
         Text text(renderer);
         Game game;
+        game.setDifficulty(savedSize.difficulty);
         game.reset();
+        if (windowTest && argc == 8 && game.difficulty != std::stoi(argv[7]))
+            throw std::runtime_error("Saved difficulty was not restored");
         bool running = true, focused = true, minimized = false, manualPause = screenshotPause;
         if (screenshotPause) game.toggleAuto();
         if (SDL_GetMouseFocus() == window) SDL_HideCursor();
         double resizeUntil = 0, last = SDL_GetTicksNS() / 1e9, accumulator = 0;
-        bool sizeDirty = false;
-        auto saveSize = [&] {
-            if (sizeDirty && !settingsPath.empty()) {
-                if (!savedSize.save(settingsPath)) std::cerr << "Could not save window size: " << settingsPath << '\n';
-                else sizeDirty = false;
+        bool settingsDirty = false;
+        auto saveSettings = [&] {
+            if (settingsDirty && !settingsPath.empty()) {
+                if (!savedSize.save(settingsPath)) std::cerr << "Could not save settings: " << settingsPath << '\n';
+                else settingsDirty = false;
             }
         };
         float scale = 1;
@@ -198,8 +201,8 @@ int main(int argc, char** argv) {
                     SDL_PushEvent(&e);
                 }
                 if (frame == 8) {
-                    int w = windowTest && argc == 7 ? std::stoi(argv[5]) : 1100;
-                    int h = windowTest && argc == 7 ? std::stoi(argv[6]) : 700;
+                    int w = windowTest && argc >= 7 ? std::stoi(argv[5]) : 1100;
+                    int h = windowTest && argc >= 7 ? std::stoi(argv[6]) : 700;
                     SDL_SetWindowSize(window, w, h);
                     if (windowTest) restoreHyprlandSize(window, w, h);
                 }
@@ -216,8 +219,12 @@ int main(int argc, char** argv) {
                     if (event.key.scancode == SDL_SCANCODE_R) game.reset();
                     if (event.key.scancode == SDL_SCANCODE_ESCAPE) { manualPause = !manualPause; accumulator = 0; elapsed = 0; }
                     if (event.key.scancode == SDL_SCANCODE_A) game.toggleAuto();
-                    if (event.key.scancode >= SDL_SCANCODE_1 && event.key.scancode <= SDL_SCANCODE_3)
+                    if (event.key.scancode >= SDL_SCANCODE_1 && event.key.scancode <= SDL_SCANCODE_3) {
                         game.setDifficulty(event.key.scancode - SDL_SCANCODE_1 + 1);
+                        savedSize.difficulty = game.difficulty;
+                        settingsDirty = true;
+                        saveSettings();
+                    }
                     break;
                 case SDL_EVENT_MOUSE_WHEEL:
                     // SDL already applies the desktop's natural-scrolling setting.
@@ -227,7 +234,7 @@ int main(int argc, char** argv) {
                     // Cache compositor-confirmed logical dimensions while the window is alive.
                     // Never query its geometry during close/teardown: it may already be unmapped.
                     if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED))
-                        sizeDirty = savedSize.update(event.window.data1, event.window.data2) || sizeDirty;
+                        settingsDirty = savedSize.update(event.window.data1, event.window.data2) || settingsDirty;
                     resize(); resizeUntil = now + .18; break;
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
@@ -242,7 +249,7 @@ int main(int argc, char** argv) {
                 }
             }
             bool paused = manualPause || now < resizeUntil || !focused || minimized;
-            if (now >= resizeUntil) saveSize();
+            if (now >= resizeUntil) saveSettings();
             if (paused) accumulator = 0;
             else {
                 accumulator += elapsed;
@@ -291,7 +298,7 @@ int main(int argc, char** argv) {
             }
             SDL_Delay(4);
         }
-        saveSize();
+        saveSettings();
     } catch (const std::exception& e) { std::cerr << e.what() << '\n'; result = 1; }
     SDL_ShowCursor();
     SDL_DestroyRenderer(renderer); SDL_DestroyWindow(window); SDL_Quit();
