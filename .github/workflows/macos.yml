@@ -1,0 +1,52 @@
+name: macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure standalone app
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          -DPING_PONG_BUNDLED_DEPS=ON
+          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+      - name: Build
+        run: cmake --build build --parallel 3
+      - name: Test physics, events and saved window size
+        run: ctest --test-dir build --output-on-failure
+      - name: Test native Cocoa window
+        run: '"build/Ping Pong.app/Contents/MacOS/Ping Pong" --smoke-test'
+      - name: Package and verify standalone dependencies
+        run: cmake --build build --target macos-package
+      - name: Test relocated packaged application
+        run: |
+          ditto "build/dist/Ping Pong.app" "$RUNNER_TEMP/Relocated/Ping Pong.app"
+          cd "$RUNNER_TEMP"
+          SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software \
+            "$RUNNER_TEMP/Relocated/Ping Pong.app/Contents/MacOS/Ping Pong" --smoke-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ping-Pong-macOS-${{ matrix.arch }}
+          path: build/dist/Ping-Pong-macOS-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 30

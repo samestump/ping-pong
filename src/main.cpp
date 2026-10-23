@@ -3,6 +3,7 @@
 #include "hyprland.hpp"
 #include <fstream>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <iostream>
@@ -17,7 +18,9 @@ struct Text {
     struct Entry { SDL_Texture* texture; float w, h; };
     std::map<std::string, Entry> cache;
     explicit Text(SDL_Renderer* r) : renderer(r) {
-        std::string path = std::string(SDL_GetBasePath()) + "assets/Silkscreen-Regular.ttf";
+        const char* base = SDL_GetBasePath();
+        if (!base) throw std::runtime_error(SDL_GetError());
+        std::string path = std::string(base) + "assets/Silkscreen-Regular.ttf";
         if (FT_Init_FreeType(&library) || FT_New_Face(library, path.c_str(), 0, &face))
             throw std::runtime_error("Cannot load font: " + path);
     }
@@ -97,8 +100,10 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Prefer native Wayland when it is available; keep SDL's X11 fallback.
+#ifdef __linux__
     if (!SDL_getenv("SDL_VIDEO_DRIVER") && SDL_getenv("WAYLAND_DISPLAY"))
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland,x11");
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO)) { std::cerr << SDL_GetError() << '\n'; return 1; }
     WindowSize savedSize;
     std::string settingsPath;
