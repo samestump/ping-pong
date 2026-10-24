@@ -20,4 +20,11 @@ execute_process(COMMAND "${GAME}" --window-state-test "${state}"
 if(NOT second EQUAL 0)
   message(FATAL_ERROR "Window restoration on second launch failed")
 endif()
+# The fourth difficulty must also survive a fresh application launch.
+file(WRITE "${state}" "${RESIZE_WIDTH} ${RESIZE_HEIGHT} 3 4\n")
+execute_process(COMMAND "${GAME}" --window-state-test "${state}"
+  ${RESIZE_WIDTH} ${RESIZE_HEIGHT} ${RESIZE_WIDTH} ${RESIZE_HEIGHT} 4 RESULT_VARIABLE fourth)
+if(NOT fourth EQUAL 0)
+  message(FATAL_ERROR "Imposible difficulty was not restored")
+endif()
 file(REMOVE "${state}")

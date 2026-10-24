@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
     bool screenshotPause = argc > 2 && std::string(argv[1]) == "--screenshot-pause";
     bool screenshot = screenshotPause || (argc > 2 && std::string(argv[1]) == "--screenshot");
     if (argc > 1 && !smoke && !screenshot) {
-        std::cout << "Ping Pong: wheel / touchpad = move, 1-3 = difficulty, Esc = pause, A = auto, R = restart, Q = quit\n";
+        std::cout << "Ping Pong: wheel / touchpad = move, 1-4 = difficulty, Esc = pause, A = auto, R = restart, Q = quit\n";
         return 0;
     }
     // Prefer native Wayland when it is available; keep SDL's X11 fallback.
@@ -206,6 +206,12 @@ int main(int argc, char** argv) {
                     SDL_SetWindowSize(window, w, h);
                     if (windowTest) restoreHyprlandSize(window, w, h);
                 }
+                if (frame == 20 || frame == 22 || frame == 24 || frame == 26) {
+                    game.leftScore = 7; game.vx = 50000;
+                    e.type = SDL_EVENT_KEY_DOWN;
+                    e.key.scancode = frame == 22 ? SDL_SCANCODE_1 : frame == 26 ? SDL_SCANCODE_3 : SDL_SCANCODE_4;
+                    SDL_PushEvent(&e);
+                }
                 if (frame == 30) { e.type = SDL_EVENT_KEY_DOWN; e.key.scancode = SDL_SCANCODE_Q; SDL_PushEvent(&e); }
             }
             SDL_Event event;
@@ -219,7 +225,7 @@ int main(int argc, char** argv) {
                     if (event.key.scancode == SDL_SCANCODE_R) game.reset();
                     if (event.key.scancode == SDL_SCANCODE_ESCAPE) { manualPause = !manualPause; accumulator = 0; elapsed = 0; }
                     if (event.key.scancode == SDL_SCANCODE_A) game.toggleAuto();
-                    if (event.key.scancode >= SDL_SCANCODE_1 && event.key.scancode <= SDL_SCANCODE_3) {
+                    if (event.key.scancode >= SDL_SCANCODE_1 && event.key.scancode <= SDL_SCANCODE_4) {
                         game.setDifficulty(event.key.scancode - SDL_SCANCODE_1 + 1);
                         savedSize.difficulty = game.difficulty;
                         settingsDirty = true;
@@ -248,6 +254,18 @@ int main(int argc, char** argv) {
                 default: break;
                 }
             }
+            if (smoke && (frame == 20 || frame == 22 || frame == 24 || frame == 26)
+                && (game.leftScore || game.rightScore || game.serveTime <= 0
+                    || std::abs(std::hypot(game.vx, game.vy) - 370) > .01f
+                    || game.difficulty != (frame == 22 ? 1 : frame == 26 ? 3 : 4)))
+                throw std::runtime_error("Imposible keyboard transition did not reset match");
+            if (windowTest && (frame == 20 || frame == 22 || frame == 24 || frame == 26)) {
+                WindowSize persisted;
+                std::ifstream input(settingsPath);
+                persisted.read(input);
+                if (persisted.difficulty != game.difficulty)
+                    throw std::runtime_error("Selected difficulty was not saved immediately");
+            }
             bool paused = manualPause || now < resizeUntil || !focused || minimized;
             if (now >= resizeUntil) saveSettings();
             if (paused) accumulator = 0;
@@ -266,7 +284,7 @@ int main(int argc, char** argv) {
             SDL_RenderFillRect(renderer, &left); SDL_RenderFillRect(renderer, &right);
             circle(renderer, game.x, game.y, Game::radius);
             text.draw(std::to_string(game.leftScore) + " - " + std::to_string(game.rightScore), game.width/2, 18, 40, scale);
-            const char* levels[] = {"1 EASY", "2 MEDIUM", "3 HARD"};
+            const char* levels[] = {"1 EASY", "2 MEDIUM", "3 HARD", "4 IMPOSIBLE"};
             text.draw(levels[game.difficulty-1], game.width/2, 70, 12, scale, 125);
             if (game.automatic) text.draw("AUTO", game.width/2, game.height - 28, 12, scale, 105);
             if (manualPause) {
@@ -275,7 +293,7 @@ int main(int argc, char** argv) {
                 SDL_FRect menuBacking{game.width/2 - 130, top - 4, 260, 110};
                 SDL_RenderFillRect(renderer, &menuBacking);
                 text.draw("PAUSED", game.width/2, top, 16, scale, 145);
-                const char* help[] = {"SCROLL  MOVE", "1-3  DIFFICULTY", "A  AUTO   R  RESTART", "Q  QUIT", "ESC  RESUME"};
+                const char* help[] = {"SCROLL  MOVE", "1-4  DIFFICULTY", "A  AUTO   R  RESTART", "Q  QUIT", "ESC  RESUME"};
                 for (int i = 0; i < 5; ++i)
                     text.draw(help[i], game.width/2, top + 28 + i * 16, 10, scale, 115);
             } else if (paused && !screenshot) text.draw("PAUSED", game.width/2, game.height/2 + 30, 16, scale, 145);

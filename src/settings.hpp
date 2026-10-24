@@ -24,7 +24,7 @@ struct WindowSize {
             if (version == 1 && w == 320 && h == 240) return;
             width = w; height = h;
             int level;
-            if (version >= 3 && input >> level && level >= 1 && level <= 3)
+            if (version >= 3 && input >> level && level >= 1 && level <= 4)
                 difficulty = level;
         }
     }
